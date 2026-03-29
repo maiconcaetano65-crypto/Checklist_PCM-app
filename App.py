@@ -123,13 +123,25 @@ def index():
     # --- NOVA VARIÁVEL PARA ALARMES ATIVOS ---
     alarmes_ativos = {} 
 
-    if "Inspecoes" in wb.sheetnames:
+if "Inspecoes" in wb.sheetnames:
         for l in wb["Inspecoes"].iter_rows(min_row=2, values_only=True):
-            if not l or not l[1]: continue
+            # --- INÍCIO DO BLOCO SEGURO ---
             try:
-                dt_insp_obj = l[1].date() if isinstance(l[1], datetime) else datetime.strptime(str(l[1]).split()[0], "%d/%m/%Y").date()
-            except: continue
+                # Se a linha estiver vazia ou a data for nula, pula para a próxima
+                if not l or l[1] is None: 
+                    continue 
 
+                if isinstance(l[1], datetime):
+                    dt_insp_obj = l[1].date()
+                else:
+                    # Tenta converter o texto em data, se falhar, o 'except' captura
+                    data_texto = str(l[1]).split()[0]
+                    dt_insp_obj = datetime.strptime(data_texto, "%d/%m/%Y").date()
+            except Exception:
+                # Se der qualquer erro na linha (data errada, formato doido),
+                # ele ignora essa linha e continua o resto do site.
+                continue 
+           
             dias_diff = (data_hoje_obj - dt_insp_obj).days
             if 0 <= dias_diff <= 1:
                 setor_insp = str(l[5]).strip().upper()
