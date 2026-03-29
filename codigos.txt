@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Asset Management Control Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-deep: #020617;
+            --card-bg: #0f172a;
+            --accent-blue: #38bdf8;
+            --danger: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+            --border: #1e293b;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg-deep);
+            color: var(--text-main);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            overflow: hidden;
+            letter-spacing: -0.02em;
+        }
+
+        /* GRID ESTRUTURAL */
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: 80px 160px 380px 1fr;
+            gap: 12px;
+            padding: 15px;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        /* HEADER ESTILO COCKPIT */
+        .header {
+            grid-column: span 4;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--border);
+            padding: 0 10px;
+        }
+
+        .header h1 {
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .status-badge {
+            font-size: 0.6rem;
+            padding: 4px 10px;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            border: 1px solid var(--success);
+            border-radius: 20px;
+        }
+
+        /* KPIs MODERNOS */
+        .kpi-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .kpi-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; font-weight: 700; }
+        .kpi-value { font-size: 2.2rem; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+        
+        .kpi-trend {
+            position: absolute;
+            right: 20px;
+            bottom: 20px;
+            font-size: 0.8rem;
+        }
+
+        /* GRÁFICOS */
+        .chart-container {
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-container h3 {
+            font-size: 0.85rem;
+            margin: 0 0 15px 0;
+            color: var(--text-dim);
+            text-transform: uppercase;
+        }
+
+        /* LISTA DE EVENTOS (REAL TIME) */
+        .event-log {
+            grid-column: span 4;
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 15px;
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+        }
+
+        th { text-align: left; color: var(--text-dim); padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+        td { padding: 12px 8px; border-bottom: 1px dotted var(--border); }
+
+        .critical-row {
+            background: linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%);
+            color: var(--danger);
+            font-weight: bold;
+        }
+
+        .pulse-icon {
+            height: 8px;
+            width: 8px;
+            background: var(--danger);
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 10px var(--danger);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+
+        .scroll-wrapper { height: 200px; overflow: hidden; }
+        .scroll-content { animation: scrollTable 30s linear infinite; }
+        @keyframes scrollTable { 0% { transform: translateY(0); } 100% { transform: translateY(-50%); } }
+
+    </style>
+</head>
+<body>
+
+<div class="dashboard">
+    <header class="header">
+        <h1>
+            <span>🛰️ CMMS CENTRAL - {{ setor_nome }}</span>
+            <span class="status-badge">SISTEMA OPERACIONAL</span>
+        </h1>
+        <div id="clock" style="font-family: 'JetBrains Mono'; font-weight: bold; color: var(--accent-blue);"></div>
+    </header>
+
+    <div class="kpi-card">
+        <span class="kpi-label">Ativos Monitorados</span>
+        <span class="kpi-value">{{ total }}</span>
+        <span class="kpi-trend" style="color: var(--success);">↑ 2.4%</span>
+    </div>
+
+    <div class="kpi-card">
+        <span class="kpi-label">Disponibilidade</span>
+        <span class="kpi-value">{{ ok }}</span>
+        <span class="kpi-trend" style="color: var(--success);">MTBF: 420h</span>
+    </div>
+
+    <div class="kpi-card" style="border-left: 4px solid var(--danger);">
+        <span class="kpi-label">Alarmes Ativos</span>
+        <span class="kpi-value" style="color: var(--danger);">{{ alarme }}</span>
+        <span class="kpi-trend" style="color: var(--danger);">CRÍTICO</span>
+    </div>
+
+    <div class="kpi-card">
+        <span class="kpi-label">Eficiência Global</span>
+        <span class="kpi-value">88.2<small style="font-size: 1rem;">%</small></span>
+    </div>
+
+    <div class="chart-container" style="grid-column: span 1;">
+        <h3>Saúde dos Ativos</h3>
+        <canvas id="pizza"></canvas>
+    </div>
+
+    <div class="chart-container" style="grid-column: span 2;">
+        <h3>Incidências por Subsistema</h3>
+        <canvas id="setor"></canvas>
+    </div>
+
+    <div class="chart-container">
+        <h3>Variáveis Críticas</h3>
+        <canvas id="top"></canvas>
+    </div>
+
+    <div class="event-log">
+        <h3><span class="pulse-icon"></span> Log de Eventos de Confiabilidade</h3>
+        <div class="scroll-wrapper">
+            <div class="scroll-content">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>TIMESTAMP</th>
+                            <th>EQUIPAMENTO</th>
+                            <th>COMPONENTE</th>
+                            <th>VALOR ATUAL</th>
+                            <th>SETOR</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in lista_alarmes %}
+                        <tr class="critical-row">
+                            <td>{{ a.Data }}</td>
+                            <td>{{ a.Equipamento }}</td>
+                            <td>{{ a.Item }}</td>
+                            <td>⚠️ {{ a.Valor }}</td>
+                            <td>{{ a.Setor }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% for a in lista_alarmes %}
+                        <tr class="critical-row">
+                            <td>{{ a.Data }}</td>
+                            <td>{{ a.Equipamento }}</td>
+                            <td>{{ a.Item }}</td>
+                            <td>⚠️ {{ a.Valor }}</td>
+                            <td>{{ a.Setor }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Configurações Globais do Chart.js para Dark Mode
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.borderColor = '#1e293b';
+
+    function atualizarRelogio(){
+        const now = new Date();
+        document.getElementById("clock").innerText = now.toLocaleTimeString('pt-BR');
+    }
+    setInterval(atualizarRelogio, 1000);
+    setTimeout(() => location.reload(), 60000);
+
+    // Gráfico de Rosca (Donut)
+    new Chart(document.getElementById('pizza'), {
+        type: 'doughnut',
+        data: {
+            labels: ['DISPONÍVEL', 'FALHA'],
+            datasets: [{
+                data: [{{ ok }}, {{ alarme }}],
+                backgroundColor: ['#10b981', '#ef4444'],
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            cutout: '75%',
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+
+    // Gráfico de Barras - Setores
+    new Chart(document.getElementById('setor'), {
+        type: 'bar',
+        data: {
+            labels: {{ alarmes_por_setor.keys()|list|tojson }},
+            datasets: [{
+                label: 'Alarmes',
+                data: {{ alarmes_por_setor.values()|list|tojson }},
+                backgroundColor: '#38bdf8'
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    // Gráfico de Variáveis
+    new Chart(document.getElementById('top'), {
+        type: 'bar',
+        data: {
+            labels: {{ variaveis_alarme.keys()|list|tojson }},
+            datasets: [{
+                label: 'Frequência',
+                data: {{ variaveis_alarme.values()|list|tojson }},
+                backgroundColor: '#f59e0b'
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            maintainAspectRatio: false
+        }
+    });
+</script>
+</body>
+</html>
+
+==============================
+MODELO 2 (ULTIMO FUNCIONANDO)
+===============================
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Cockpit Real-Time: {{ setor_nome }}</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=Roboto+Mono:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root { 
+            --bg-body: #0f172a; 
+            --bg-card: #1e293b; 
+            --accent-blue: #3b82f6; 
+            --danger: #ff4444; 
+            --success: #00ff88; 
+            --warning: #f59e0b; 
+            --text-main: #f8fafc; 
+            --text-dim: #94a3b8; 
+            --border: #334155; 
+        }
+
+        body { 
+            margin: 0; 
+            background: var(--bg-body); 
+            color: var(--text-main); 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            overflow: hidden; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+        }
+
+        header { 
+            background: rgba(15, 23, 42, 0.9); 
+            padding: 12px 25px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 2px solid var(--border); 
+            height: 60px; 
+            box-sizing: border-box;
+        }
+
+        /* Estilo do Botão MENU */
+        .btn-menu {
+            background: var(--bg-card);
+            color: white;
+            text-decoration: none;
+            padding: 8px 18px;
+            border-radius: 6px;
+            font-weight: 800;
+            border: 1px solid var(--border);
+            transition: 0.3s;
+            font-size: 0.9rem;
+        }
+        .btn-menu:hover {
+            background: var(--accent-blue);
+            border-color: var(--text-main);
+        }
+
+        .main-content { 
+            flex: 1; 
+            padding: 15px; 
+            display: grid; 
+            grid-template-columns: 1fr 1.5fr 1.5fr; 
+            grid-template-rows: 120px 1fr 1fr; 
+            gap: 15px; 
+            min-height: 0; 
+        }
+
+        .kpi-row { grid-column: span 3; display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+
+        .kpi-card { 
+            background: var(--bg-card); 
+            border-radius: 12px; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            border: 1px solid var(--border); 
+        }
+
+        .kpi-value { font-size: 3.2rem; font-weight: 800; font-family: 'Roboto Mono'; line-height: 1; }
+
+        .chart-box { 
+            background: var(--bg-card); 
+            border-radius: 16px; 
+            padding: 15px; 
+            border: 1px solid var(--border); 
+            display: flex; 
+            flex-direction: column; 
+            position: relative; 
+            overflow: hidden; 
+        }
+
+        .chart-container { flex: 1; position: relative; min-height: 0; }
+        canvas { position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; }
+
+        .event-log { 
+            grid-column: span 3; 
+            background: #000; 
+            border-radius: 12px; 
+            padding: 5px; 
+            overflow: hidden; 
+            border: 1px solid var(--border); 
+        }
+
+        .scroll-content { animation: scrollTable 40s linear infinite; }
+        @keyframes scrollTable { 0% { transform: translateY(0); } 100% { transform: translateY(-50%); } }
+
+        table { width: 100%; border-collapse: collapse; }
+        td { font-size: 1.1rem; padding: 10px; border-bottom: 1px solid #1e293b; color: #fff; }
+
+        #camadaAtivacao { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(15, 23, 42, 0.98); 
+            z-index: 999999; display: flex; justify-content: center; align-items: center; 
+        }
+        .btn-ativar { padding: 20px 50px; font-size: 1.5rem; font-weight: 800; background: var(--success); border: none; border-radius: 12px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<!-- Camada inicial para navegadores -->
+<div id="camadaAtivacao">
+    <button class="btn-ativar" onclick="iniciarDashboard()"><i class="fas fa-play"></i> INICIAR MONITORAMENTO</button>
+</div>
+
+<header>
+    <!-- BOTÃO MENU RESTAURADO -->
+    <a href="{{ url_for('index') }}" class="btn-menu"><i class="fas fa-chevron-left"></i> MENU</a>
+    
+    <div style="font-weight: 800; font-size: 1.2rem;">COCKPIT REAL-TIME: {{ setor_nome }}</div>
+    
+    <div style="display: flex; align-items: center; gap: 20px;">
+        <div style="color:var(--success); font-weight:800;"><i class="fas fa-sync fa-spin"></i> SINCRONIZADO</div>
+        <div style="background:#000; padding:5px 15px; border-radius:20px; color:var(--success); font-weight:800; border:1px solid var(--success)">
+            ATUALIZANDO EM: <span id="timer">20</span>s
+        </div>
+    </div>
+</header>
+
+<main class="main-content">
+    <div class="kpi-row">
+        <div class="kpi-card"><div style="color:var(--text-dim)">TOTAL</div><div class="kpi-value" id="val-total">{{ total }}</div></div>
+        <div class="kpi-card"><div style="color:var(--text-dim)">OK</div><div class="kpi-value" id="val-ok" style="color:var(--success)">{{ ok }}</div></div>
+        <div class="kpi-card"><div style="color:var(--text-dim)">ALARMES</div><div class="kpi-value" id="val-alarme" style="color:var(--danger)">{{ alarme }}</div></div>
+        <div class="kpi-card"><div style="color:var(--text-dim)">HORA</div><div id="clock" class="kpi-value" style="color:var(--accent-blue)"></div></div>
+    </div>
+
+    <div class="chart-box">
+        <div style="text-align:center; font-weight:800; margin-bottom:5px">SAÚDE GERAL</div>
+        <div class="chart-container"><canvas id="chartSaude"></canvas></div>
+    </div>
+    
+    <div class="chart-box">
+        <div style="text-align:center; font-weight:800; margin-bottom:5px">ALARMES POR SETOR</div>
+        <div class="chart-container"><canvas id="chartSetores"></canvas></div>
+    </div>
+
+    <div class="chart-box">
+        <div style="text-align:center; font-weight:800; margin-bottom:5px">TOP FALHAS (ITENS)</div>
+        <div class="chart-container"><canvas id="chartItens"></canvas></div>
+    </div>
+
+    <div class="event-log">
+        <div id="wrapperTabela" class="scroll-content">
+            <table id="tabelaReal">
+                <tbody id="tabelaAlarmes">
+                    {% for reg in lista_alarmes %}
+                    <tr>
+                        <td style="width:25%"><b>{{ reg.Equipamento }}</b></td>
+                        <td style="width:25%">{{ reg.Item }}</td>
+                        <td style="color:red; font-weight:800; width:10%">{{ reg.Valor }}</td>
+                        <td style="width:20%">{{ reg.Setor }}</td>
+                        <td style="width:20%">{{ reg.Data }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<script>
+let timerVal = 20;
+let dashboardAtivo = false;
+
+// Configurações Globais dos Gráficos
+const cfg = { responsive: true, maintainAspectRatio: false, animation: { duration: 800 } };
+
+let chartSaude = new Chart(document.getElementById('chartSaude'), {
+    type: 'doughnut',
+    data: { labels: ['OK', 'Alarme'], datasets: [{ data: [{{ ok }}, {{ alarme }}], backgroundColor: ['#00ff88', '#ff4444'], borderWidth: 0 }] },
+    options: cfg
+});
+
+let chartSetores = new Chart(document.getElementById('chartSetores'), {
+    type: 'bar',
+    data: { labels: {{ alarmes_por_setor.keys()|list|tojson }}, datasets: [{ label: 'Alarmes', data: {{ alarmes_por_setor.values()|list|tojson }}, backgroundColor: '#3b82f6' }] },
+    options: cfg
+});
+
+let chartItens = new Chart(document.getElementById('chartItens'), {
+    type: 'bar',
+    data: { 
+        labels: {{ variaveis_alarme.keys()|list|tojson }}, 
+        datasets: [{ label: 'Qtd Falhas', data: {{ variaveis_alarme.values()|list|tojson }}, backgroundColor: '#f59e0b' }] 
+    },
+    options: { 
+        ...cfg, 
+        scales: { 
+            y: { beginAtZero: true, ticks: { precision: 0 } },
+            x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } }
+        } 
+    }
+});
+
+function iniciarDashboard() {
+    document.getElementById('camadaAtivacao').style.display = 'none';
+    dashboardAtivo = true;
+    atualizarDados();
+}
+
+async function atualizarDados() {
+    if(!dashboardAtivo) return;
+    try {
+        const response = await fetch('/api_dashboard?t=' + Date.now());
+        const d = await response.json();
+
+        // 1. Atualiza KPIs
+        document.getElementById('val-total').innerText = d.total;
+        document.getElementById('val-ok').innerText = d.ok;
+        document.getElementById('val-alarme').innerText = d.alarme;
+
+        // 2. Atualiza Gráfico Saúde
+        chartSaude.data.datasets[0].data = [d.ok, d.alarme];
+        chartSaude.update();
+
+        // 3. Atualiza Gráfico Setores
+        chartSetores.data.labels = Object.keys(d.alarmes_por_setor);
+        chartSetores.data.datasets[0].data = Object.values(d.alarmes_por_setor);
+        chartSetores.update();
+
+        // 4. ATUALIZAÇÃO DO GRÁFICO DE ITENS (TOP FALHAS) - CORREÇÃO DEFINITIVA
+        chartItens.data.labels = Object.keys(d.variaveis_alarme);
+        chartItens.data.datasets[0].data = Object.values(d.variaveis_alarme);
+        chartItens.update();
+
+        // 5. Atualiza Tabela
+        let htmlTabela = "";
+        d.lista.forEach(reg => {
+            htmlTabela += `<tr>
+                <td style="width:25%"><b>${reg.Equipamento}</b></td>
+                <td style="width:25%">${reg.Item}</td>
+                <td style="color:red; font-weight:800; width:10%">${reg.Valor}</td>
+                <td style="width:20%">${reg.Setor}</td>
+                <td style="width:20%">${reg.Data}</td>
+            </tr>`;
+        });
+        // Duplica para efeito de scroll infinito
+        document.getElementById('wrapperTabela').innerHTML = `<table><tbody>${htmlTabela}${htmlTabela}</tbody></table>`;
+
+    } catch (e) { console.error("Erro na sincronização:", e); }
+}
+
+setInterval(() => {
+    document.getElementById('clock').innerText = new Date().toLocaleTimeString('pt-BR');
+    if(dashboardAtivo) {
+        timerVal--;
+        if(timerVal <= 0) { timerVal = 20; atualizarDados(); }
+        document.getElementById('timer').innerText = timerVal;
+    }
+}, 1000);
+</script>
+</body>
+</html>
+
+# ======================================
+# MODELO 3 (ATUALIZA EM TEMPO REAL)
+# ======================================
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Cockpit de Manutenção - {{ setor_nome }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=Roboto+Mono:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-main: #f1f5f9;
+            --card-bg: #ffffff;
+            --accent-blue: #0f172a;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --success: #10b981;
+            --text-main: #1e293b;
+            --text-dim: #64748b;
+            --border: #e2e8f0;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg-main);
+            color: var(--text-main);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* BOTÃO VOLTAR */
+        .btn-voltar-flutuante {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: var(--accent-blue);
+            color: white;
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 1000;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        /* AJUSTE FINO: STATUS DE ATUALIZAÇÃO REALT-TIME */
+        .status-update {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text-dim);
+            z-index: 1000;
+        }
+
+        .led-sync {
+            width: 8px;
+            height: 8px;
+            background-color: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--success);
+            animation: pulse-green 2s infinite;
+        }
+
+        @keyframes pulse-green {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        /* CONTEÚDO E GRID (CONGELADOS) */
+        .main-content { flex: 1; padding: 20px; padding-top: 60px; display: flex; flex-direction: column; gap: 15px; box-sizing: border-box; }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: 120px 300px 1fr; gap: 15px; height: 100%; }
+        .kpi-card { background: var(--card-bg); border-radius: 12px; padding: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); text-align: center; display: flex; flex-direction: column; justify-content: center; }
+        .kpi-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; font-weight: 700; }
+        .kpi-value { font-size: 2.2rem; font-weight: 800; font-family: 'Roboto Mono', monospace; }
+
+        .chart-box { background: var(--card-bg); border-radius: 16px; padding: 15px; box-shadow: 0 6px 20px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow: hidden; }
+        .chart-box h3 { font-size: 0.75rem; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px; }
+        .chart-wrapper { flex: 1; position: relative; width: 100%; }
+        .chart-wrapper canvas { position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; }
+
+        /* TABELA DE ROLAGEM */
+        .event-log { grid-column: span 4; background: var(--card-bg); border-radius: 16px; box-shadow: 0 6px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow: hidden; padding: 15px; }
+        .table-header-fixed { width: 100%; border-collapse: collapse; font-size: 0.65rem; text-transform: uppercase; color: var(--text-dim); margin-bottom: 5px; }
+        .scroll-viewport { flex: 1; overflow: hidden; }
+        .scroll-content { animation: scrollTable 35s linear infinite; }
+        .scroll-content:hover { animation-play-state: paused; }
+        @keyframes scrollTable { 0% { transform: translateY(0); } 100% { transform: translateY(-50%); } }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        td, th { padding: 12px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+        .setor-badge { background: #0f172a; color: #fff; font-weight: 600; padding: 4px 10px; border-radius: 20px; font-size: 0.65rem; }
+        .badge-dias { font-weight: 800; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; }
+
+        .col-eq { width: 22%; } .col-item { width: 22%; } .col-val { width: 15%; } .col-set { width: 15%; } .col-dias { width: 10%; text-align: center; } .col-time { width: 16%; }
+    </style>
+</head>
+<body>
+
+    <a href="index.html" class="btn-voltar-flutuante">
+        <i class="fas fa-arrow-left"></i> MENU
+    </a>
+
+    <div class="status-update">
+        <div class="led-sync"></div>
+        <span>LIVE: SYNC EXCEL <span id="timer">30</span>s</span>
+    </div>
+
+    <main class="main-content">
+        <h2 style="margin: 0 0 10px 0; font-size: 1.1rem; color: var(--accent-blue); text-align: center; font-weight: 800;">
+            CENTRAL DE MONITORAMENTO - {{ setor_nome }}
+        </h2>
+
+        <div class="dashboard-grid">
+            <div class="kpi-card">
+                <div class="kpi-label">Ativos Totais</div>
+                <div class="kpi-value">{{ total }}</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Status OK</div>
+                <div class="kpi-value" style="color: var(--success)">{{ ok }}</div>
+            </div>
+            <div class="kpi-card" style="border-bottom: 4px solid var(--danger)">
+                <div class="kpi-label">Alarmes Ativos</div>
+                <div class="kpi-value" style="color: var(--danger)">{{ alarme }}</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Horário</div>
+                <div id="clock" style="font-size: 1.5rem; font-weight: 800; color: var(--accent-blue);">00:00:00</div>
+            </div>
+
+            <div class="chart-box"><h3>Saúde</h3><div class="chart-wrapper"><canvas id="chartSaude"></canvas></div></div>
+            <div class="chart-box" style="grid-column: span 2;"><h3>Alarmes/Setor</h3><div class="chart-wrapper"><canvas id="chartSetores"></canvas></div></div>
+            <div class="chart-box"><h3>Variáveis</h3><div class="chart-wrapper"><canvas id="chartItens"></canvas></div></div>
+
+            <div class="event-log">
+                <table class="table-header-fixed">
+                    <thead>
+                        <tr>
+                            <th class="col-eq">Equipamento</th>
+                            <th class="col-item">Item</th>
+                            <th class="col-val">Valor</th>
+                            <th class="col-set">Setor</th>
+                            <th class="col-dias">Dias</th>
+                            <th class="col-time">Data</th>
+                        </tr>
+                    </thead>
+                </table>
+                <div class="scroll-viewport">
+                    <div class="scroll-content">
+                        <table>
+                            <tbody>
+                                {% for reg in lista_alarmes %}
+                                <tr>
+                                    <td class="col-eq"><b>{{ reg.Equipamento }}</b></td>
+                                    <td class="col-item">{{ reg.Item }}</td>
+                                    <td class="col-val"><span style="color: var(--danger); font-weight: 800;"><i class="fas fa-exclamation-triangle"></i> {{ reg.Valor }}</span></td>
+                                    <td class="col-set"><span class="setor-badge">{{ reg.Setor }}</span></td>
+                                    <td class="col-dias"><span class="badge bg-danger badge-dias">{{ reg.Dias if reg.Dias else '1' }}d</span></td>
+                                    <td class="col-time" style="color: var(--text-dim); font-size: 0.7rem;">{{ reg.Data }}</td>
+                                </tr>
+                                {% endfor %}
+                                {% for reg in lista_alarmes %}
+                                <tr>
+                                    <td class="col-eq"><b>{{ reg.Equipamento }}</b></td>
+                                    <td class="col-item">{{ reg.Item }}</td>
+                                    <td class="col-val"><span style="color: var(--danger); font-weight: 800;"><i class="fas fa-exclamation-triangle"></i> {{ reg.Valor }}</span></td>
+                                    <td class="col-set"><span class="setor-badge">{{ reg.Setor }}</span></td>
+                                    <td class="col-dias"><span class="badge bg-danger badge-dias">{{ reg.Dias if reg.Dias else '1' }}d</span></td>
+                                    <td class="col-time" style="color: var(--text-dim); font-size: 0.7rem;">{{ reg.Data }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+<script>
+    // RELÓGIO E TIMER DE SYNC
+    let timeLeft = 30;
+    function updateClock() {
+        document.getElementById('clock').innerText = new Date().toLocaleTimeString('pt-BR');
+        timeLeft--;
+        document.getElementById('timer').innerText = timeLeft;
+        if(timeLeft <= 0) { window.location.reload(); }
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // GRÁFICOS
+    Chart.defaults.color = '#64748b';
+    Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+
+    new Chart(document.getElementById('chartSaude'), {
+        type: 'doughnut',
+        data: {
+            labels: ['OK', 'Alarme'],
+            datasets: [{
+                data: [{{ ok }}, {{ alarme }}],
+                backgroundColor: ['#10b981', '#ef4444'],
+                borderWidth: 0
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'bottom' } } }
+    });
+
+    new Chart(document.getElementById('chartSetores'), {
+        type: 'bar',
+        data: {
+            labels: {{ alarmes_por_setor.keys()|list|tojson }},
+            datasets: [{ label: 'Alarmes', data: {{ alarmes_por_setor.values()|list|tojson }}, backgroundColor: '#0f172a', borderRadius: 4 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+
+    new Chart(document.getElementById('chartItens'), {
+        type: 'bar',
+        data: {
+            labels: {{ variaveis_alarme.keys()|list|tojson }},
+            datasets: [{ data: {{ variaveis_alarme.values()|list|tojson }}, backgroundColor: '#f59e0b', borderRadius: 4 }]
+        },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+</script>
+</body>
+</html>
+
+MODELO 4
+
+
+

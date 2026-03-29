@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Inspeção Pro Premium - Tablet Edition</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #2563eb; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --accent: #8b5cf6;
+            --bg-body: #f1f5f9; --text-main: #0f172a; --text-muted: #64748b;
+            --radius: 16px; --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        * { box-sizing: border-box; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--bg-body); color: var(--text-main); margin: 0; padding-bottom: 100px; }
+        
+        .app-header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; padding: 25px; text-align: center; box-shadow: var(--shadow); }
+        .turno-status { font-size: 0.85rem; background: rgba(255,255,255,0.1); padding: 6px 16px; border-radius: 20px; margin-top: 8px; display: inline-block; font-weight: 700; }
+        
+        .notif-title { font-size: 0.65rem; font-weight: 900; letter-spacing: 2px; margin-bottom: 10px; display: inline-block; animation: pulseRedWhite 1.5s infinite; }
+        @keyframes pulseRedWhite {
+            0% { color: #fff; text-shadow: 0 0 5px #fff; }
+            50% { color: var(--danger); text-shadow: 0 0 10px var(--danger); }
+            100% { color: #fff; text-shadow: 0 0 5px #fff; }
+        }
+
+        .notification-area { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 25px; }
+        .notif-item { background: white; padding: 15px; border-radius: var(--radius); border-left: 4px solid var(--primary); display: flex; align-items: center; gap: 12px; box-shadow: var(--shadow); text-decoration: none; transition: 0.2s; }
+        .notif-item.alert { border-left-color: var(--danger); background: #fff5f5; }
+        .notif-item.pending { border-left-color: var(--warning); }
+        .notif-icon-circle { width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.9rem; }
+        .notif-text b { display: block; font-size: 1.1rem; color: var(--text-main); line-height: 1; }
+        .notif-text span { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+
+        .top-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; justify-content: space-around; padding: 15px 0; border-top: 1px solid #e2e8f0; z-index: 1000; }
+        .nav-item { text-decoration: none; color: var(--text-muted); font-size: 0.8rem; font-weight: 700; display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; transition: 0.3s; }
+        .nav-item.active { color: var(--primary); }
+        .nav-item.logout { color: var(--danger); }
+        .nav-item i { font-size: 1.5rem; }
+
+        .container { max-width: 850px; margin: auto; padding: 25px; }
+        .eq-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 15px; }
+        .eq-card-link { background: white; border-radius: var(--radius); padding: 25px; display: flex; align-items: center; justify-content: space-between; text-decoration: none; color: inherit; border: 1.5px solid #e2e8f0; box-shadow: var(--shadow); transition: 0.2s; }
+        
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(6px); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .modal-content { background: var(--bg-body); width: 100%; max-width: 850px; max-height: 90vh; border-radius: 24px; overflow-y: auto; padding: 35px; position: relative; }
+        .btn-close-modal { position: absolute; top: 25px; right: 25px; width: 45px; height: 45px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; box-shadow: var(--shadow); }
+
+        .items-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+        .card { background: white; padding: 20px; border-radius: var(--radius); box-shadow: var(--shadow); border: 2.5px solid transparent; position: relative; }
+        .card.expanded { grid-column: span 2; border-color: var(--danger); }
+        
+        .item-label { font-size: 0.85rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; display: block; }
+        input[type="number"] { width: 100%; padding: 15px; border-radius: 12px; border: 1.5px solid #e2e8f0; font-size: 1.1rem; font-weight: 700; background: #f8fafc; outline: none; }
+        
+        .oknok-container { display: flex; gap: 10px; }
+        .oknok-label { display: block; padding: 15px; text-align: center; background: #f8fafc; border-radius: 12px; font-weight: 800; border: 1.5px solid #e2e8f0; cursor: pointer; flex: 1; }
+        .oknok-btn input:checked + .oknok-label { color: white; }
+        .oknok-btn input[value="OK"]:checked + .oknok-label { background: var(--success); }
+        .oknok-btn input[value="NOK"]:checked + .oknok-label { background: var(--danger); }
+
+        .obs-container { display: none; margin-top: 15px; padding: 20px; border-radius: 12px; background: #fff5f5; border: 1.5px dashed var(--danger); position: relative; }
+        .btn-close-obs { position: absolute; top: 10px; right: 10px; background: white; border: 1px solid #fee2e2; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: var(--danger); cursor: pointer; }
+        
+        textarea { width: 100%; border-radius: 10px; border: 1.5px solid #fecaca; padding: 15px; font-family: inherit; margin-bottom: 12px; }
+        .btn-submit { width: 100%; background: var(--primary); color: white; border: none; padding: 22px; border-radius: 20px; font-size: 1.2rem; font-weight: 800; margin-top: 30px; cursor: pointer; }
+
+        @media (max-width: 700px) { .items-grid { grid-template-columns: 1fr; } .card.expanded { grid-column: span 1; } }
+    </style>
+</head>
+<body>
+
+<div class="app-header">
+    <h1 style="margin:0; font-size: 1.4rem; letter-spacing: 1px;">SISTEMA DE INSPEÇÃO INDUSTRIAL</h1>
+    <div class="turno-status"><i class="fas fa-industry"></i> {{ session.setor }} | TURNO: {{ turno }}</div>
+</div>
+
+<div class="container">
+    <div class="notif-title">● NOTIFICAÇÕES (HOJE E ONTEM)</div>
+
+    <div class="notification-area">
+        <a href="/programacao" class="notif-item">
+            <div class="notif-icon-circle" style="background: var(--primary);"><i class="fas fa-clipboard-list"></i></div>
+            <div class="notif-text"><span>Total 48h</span><b>{{ total_periodo|default(0) }}</b></div>
+        </a>
+        <a href="/programacao" class="notif-item pending">
+            <div class="notif-icon-circle" style="background: var(--warning);"><i class="fas fa-clock"></i></div>
+            <div class="notif-text"><span>Pendentes</span><b>{{ pendentes_periodo|default(0) }}</b></div>
+        </a>
+        <a href="/tratativas" class="notif-item alert">
+            <div class="notif-icon-circle" style="background: var(--danger);"><i class="fas fa-exclamation-triangle"></i></div>
+            <div class="notif-text"><span>Alertas Setor</span><b>{{ alertas_periodo|default(0) }}</b></div>
+        </a>
+        <a href="/mapa" class="notif-item" style="border-left-color: var(--success);">
+            <div class="notif-icon-circle" style="background: var(--success);"><i class="fas fa-map-marked-alt"></i></div>
+            <div class="notif-text"><span>Mapa</span><b>VER</b></div>
+        </a>
+    </div>
+
+    <p style="font-weight: 800; color: var(--text-muted); font-size: 0.9rem; text-transform: uppercase; margin-bottom: 20px;">Equipamentos do Setor: {{ session.setor }}</p>
+    
+<div class="eq-grid">
+        {% for eq, lista in equipamentos.items() %}
+        <a href="/?equipamento={{ eq }}" class="eq-card-link" {% if eq in alarmes_ativos %} style="border-color: var(--danger); background: #fff5f5;" {% endif %}>
+            <div class="eq-info">
+                <h3 style="margin:0; display: flex; align-items: center; gap: 8px;">
+                    {{ eq }}
+                    {% if eq in alarmes_ativos %}
+                    <span style="font-size: 0.6rem; background: var(--danger); color: white; padding: 3px 8px; border-radius: 20px; animation: pulseRedWhite 1.5s infinite; white-space: nowrap;">
+                        <i class="fas fa-exclamation-triangle"></i> OS: {{ alarmes_ativos[eq] }}
+                    </span>
+                    {% endif %}
+                </h3>
+                <p style="margin:5px 0 0 0; font-size:0.8rem; color:var(--text-muted)">
+                    <i class="fas fa-check-circle"></i> {{ lista|length }} pontos
+                    {% if eq in alarmes_ativos %}
+                    <br><small style="color: var(--danger); font-weight: 800; font-size: 0.65rem;">EQUIPAMENTO COM ALARME PENDENTE</small>
+                    {% endif %}
+                </p>
+            </div>
+            <i class="fas fa-chevron-right" style="color: {% if eq in alarmes_ativos %}var(--danger){% else %}var(--primary){% endif %};"></i>
+        </a>
+        {% endfor %}
+    </div>
+
+    {% if selecionado %}
+    <div class="modal-overlay" id="modalOverlay" onclick="window.location.href='/'">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="btn-close-modal" onclick="window.location.href='/'"><i class="fas fa-times"></i></button>
+            <h2 style="margin-bottom: 30px; border-left: 5px solid var(--primary); padding-left: 15px;">{{ selecionado }}</h2>
+
+            <form method="POST" action="/salvar" enctype="multipart/form-data" id="inspectionForm" onsubmit="return validarFormulario(event)">
+                <input type="hidden" name="equipamento" value="{{ selecionado }}">
+                
+                <input type="hidden" name="latitude" id="lat">
+                <input type="hidden" name="longitude" id="lon">
+                
+                <div class="items-grid">
+                    {% for i in itens %}
+                    <div class="card" data-item-type="{{i.tipo|lower}}" data-item-name="{{i.item}}" 
+                         {% if i.tipo|lower in ["numero", "numerico"] %} data-min="{{i.min}}" data-max="{{i.max}}" {% endif %}>
+                        
+                        <span class="item-label">{{i.item}}</span>
+                        
+                        <input type="hidden" name="status_real_{{i.item}}" id="status_{{i.item}}" value="OK">
+
+                        {% if i.tipo|lower in ["numero", "numerico"] %}
+                        <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; margin-bottom: 5px; display: block;"><i class="fas fa-ruler"></i> Ref: {{i.min}} a {{i.max}}</span>
+                        <input type="number" name="{{i.item}}" placeholder="Valor" step="any" class="input-monitor" onblur="validarCampoNumerico(this)" onkeydown="processarEnter(event, this)">
+                        {% endif %}
+
+                        {% if i.tipo|lower == "oknok" %}
+                        <div class="oknok-container">
+                            <label class="oknok-btn" style="flex:1">
+                                <input type="radio" name="{{i.item}}" value="OK" class="input-monitor" style="display:none" onchange="atualizarStatusManual(this)">
+                                <span class="oknok-label">OK</span>
+                            </label>
+                            <label class="oknok-btn" style="flex:1">
+                                <input type="radio" name="{{i.item}}" value="NOK" class="input-monitor" style="display:none" onchange="atualizarStatusManual(this)">
+                                <span class="oknok-label">NOK</span>
+                            </label>
+                        </div>
+                        {% endif %}
+
+                        <div class="obs-container" id="obs_box_{{i.item}}">
+                            <div class="btn-close-obs" onclick="recolherDesvio(this)">X</div>
+                            <p style="margin: 0 0 10px 0; font-size: 0.75rem; color: var(--danger); font-weight: 800;">REGISTRO DE ANOMALIA</p>
+                            <textarea name="obs_{{i.item}}" placeholder="Descreva o problema..."></textarea>
+                            <label style="display: block; background: white; padding: 15px; border-radius: 10px; text-align: center; font-size: 0.85rem; font-weight: 800; border: 1.5px dashed #cbd5e1; cursor: pointer; color: var(--primary);">
+                                <i class="fas fa-camera"></i> ANEXAR FOTO
+                                <input type="file" name="foto_{{i.item}}" accept="image/*" capture="camera" style="display:none" onchange="this.parentElement.style.background='#dcfce7'">
+                            </label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <button type="submit" class="btn-submit">ENVIAR INSPEÇÃO COMPLETA</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<nav class="top-nav">
+    <a href="/" class="nav-item active"><i class="fas fa-tasks"></i><span>Checklist</span></a>
+    <a href="/programacao" class="nav-item"><i class="fas fa-calendar-day"></i><span>Agenda</span></a>
+    <a href="/mapa" class="nav-item"><i class="fas fa-map-marked-alt"></i><span>Mapa</span></a>
+    {% if session.nivel == 'ADMIN' %}
+    <a href="/tratativas" class="nav-item"><i class="fas fa-exclamation-triangle"></i><span>Alertas</span></a>
+    {% endif %}
+
+<nav class="top-nav">
+    <a href="/" class="nav-item active"><i class="fas fa-tasks"></i><span>Checklist</span></a>
+    
+    <a href="{{ url_for('gestao_a_vista') }}" class="nav-item" style="color: var(--danger);">
+        <i class="fas fa-eye"></i><span>Gestão</span>
+    </a>
+
+    <a href="/programacao" class="nav-item"><i class="fas fa-calendar-day"></i><span>Agenda</span></a>
+    
+    {% if session.get('nivel') in ['ADMIN', 'ADMINFULL'] %}
+    <a href="{{ url_for('analise') }}" class="nav-item">
+        <i class="fas fa-chart-line"></i><span>Análise</span>
+    </a>
+    {% endif %}
+
+    {% if session.nivel == 'ADMINFULL' %}
+    <a href="/pcm" class="nav-item"><i class="fas fa-tools"></i><span>PCM</span></a>
+    {% endif %}
+
+    <a href="/dashboard" class="nav-item"><i class="fas fa-chart-pie"></i><span>KPIs</span></a>
+    <a href="/logout" class="nav-item logout"><i class="fas fa-sign-out-alt"></i><span>Sair</span></a>
+</nav>
+
+
+<script>
+    function capturarLocalizacao() {
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                document.getElementById('lat').value = position.coords.latitude;
+                document.getElementById('lon').value = position.coords.longitude;
+            }, function(error) {
+                console.warn("Localização não obtida: " + error.message);
+            }, { enableHighAccuracy: true });
+        }
+    }
+
+    {% if selecionado %}
+        window.onload = capturarLocalizacao;
+    {% endif %}
+
+    function recolherDesvio(btn) {
+        const card = btn.closest('.card');
+        card.querySelector('.obs-container').style.display = 'none';
+        card.classList.remove('expanded');
+    }
+
+    function validarCampoNumerico(campo) {
+        if (campo.value.trim() === "") return;
+        const card = campo.closest('.card');
+        const itemName = card.dataset.itemName;
+        const obsContainer = card.querySelector('.obs-container');
+        const statusInput = document.getElementById('status_' + itemName);
+        
+        const val = parseFloat(campo.value.replace(',', '.'));
+        const min = parseFloat(card.dataset.min);
+        const max = parseFloat(card.dataset.max);
+
+        if (!isNaN(val)) {
+            if (val < min || val > max) {
+                campo.classList.add('input-error');
+                obsContainer.style.display = 'block';
+                card.classList.add('expanded');
+                if(statusInput) statusInput.value = "ALARME";
+            } else {
+                campo.classList.remove('input-error');
+                obsContainer.style.display = 'none';
+                card.classList.remove('expanded');
+                if(statusInput) statusInput.value = "OK";
+            }
+        }
+    }
+
+    function atualizarStatusManual(radio) {
+        const card = radio.closest('.card');
+        const itemName = card.dataset.itemName;
+        const obsContainer = card.querySelector('.obs-container');
+        const statusInput = document.getElementById('status_' + itemName);
+        
+        if (radio.value === 'NOK') {
+            obsContainer.style.display = 'block';
+            card.classList.add('expanded');
+            if(statusInput) statusInput.value = "ALARME";
+        } else {
+            obsContainer.style.display = 'none';
+            card.classList.remove('expanded');
+            if(statusInput) statusInput.value = "OK";
+        }
+    }
+
+    function processarEnter(event, campo) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            validarCampoNumerico(campo);
+            const todosInputs = Array.from(document.querySelectorAll('.input-monitor'));
+            const index = todosInputs.indexOf(campo);
+            if (index > -1 && todosInputs[index + 1]) todosInputs[index + 1].focus();
+        }
+    }
+
+    function validarFormulario(event) {
+        const cards = document.querySelectorAll('.card');
+        let valido = true;
+        cards.forEach(card => {
+            const tipo = card.dataset.itemType;
+            let preenchido = false;
+            if (tipo === 'numero' || tipo === 'numerico') {
+                const inputNum = card.querySelector('input[type="number"]');
+                if (inputNum && inputNum.value.trim() !== "") preenchido = true;
+            } else {
+                const inputRadio = card.querySelector('input[type="radio"]:checked');
+                if (inputRadio) preenchido = true;
+            }
+            if (!preenchido) valido = false;
+        });
+
+        if (!valido) {
+            event.preventDefault();
+            alert("Por favor, preencha todos os campos.");
+            return false;
+        }
+        return true;
+    }
+</script>
+</body>
+</html>

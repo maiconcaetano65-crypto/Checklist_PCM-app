@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestão à Vista - Live</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+/* 1. AJUSTE PARA OCUPAR A TELA TODA */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* Impede scroll na página inteira, o scroll será só na tabela */
+}
+
+body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: #f1f5f9;
+    display: flex;
+    flex-direction: column; /* Organiza os blocos um embaixo do outro */
+}
+
+/* HEADER */
+.app-header {
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: white;
+    padding: 15px;
+    text-align: center;
+    flex-shrink: 0; /* Impede que o header diminua */
+}
+
+/* KPI */
+.kpi-card {
+    background: white;
+    border-radius: 12px;
+    padding: 8px;
+    text-align: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+/* ÁREA DA TABELA (ESTA CRESCERÁ) */
+.card-gestao {
+    background: white;
+    border-radius: 16px 16px 0 0;
+    margin: 0 15px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1; /* FAZ ESTE CARD OCUPAR O RESTO DA TELA */
+    overflow: hidden;
+    margin-bottom: 80px; /* Espaço para o menu inferior */
+}
+
+/* CABEÇALHO FIXO */
+.table-header-fixed {
+    background: #f8fafc;
+    width: 100%;
+    table-layout: fixed;
+    border-bottom: 2px solid #e2e8f0;
+    flex-shrink: 0;
+}
+
+.table-header-fixed th {
+    padding: 12px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: #64748b;
+    text-align: center;
+}
+
+/* ÁREA DE ROLAGEM */
+.scroll-viewport {
+    flex-grow: 1; /* Ocupa o restante do card */
+    overflow-y: auto; /* PERMITE SCROLL DO MOUSE */
+    position: relative;
+    cursor: ns-resize;
+}
+
+/* Estilização da barra de scroll para ficar discreta */
+.scroll-viewport::-webkit-scrollbar {
+    width: 6px;
+}
+.scroll-viewport::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 10px;
+}
+
+.scroll-content {
+    animation: scrollGestao 30s linear infinite;
+}
+
+/* PAUSA AO PASSAR O MOUSE (Permite usar o scroll do mouse manualmente) */
+.scroll-viewport:hover .scroll-content {
+    animation-play-state: paused;
+}
+
+@keyframes scrollGestao {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-50%); }
+}
+
+table {
+    width: 100%;
+    table-layout: fixed;
+}
+
+td {
+    padding: 12px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: center;
+    font-size: 0.85rem;
+}
+
+/* LARGURAS DAS COLUNAS */
+.col-eq { width: 25%; text-align: left !important; }
+.col-item { width: 15%; }
+.col-nivel { width: 15%; }
+.col-val { width: 12%; }
+.col-set { width: 15%; }
+.col-dias { width: 10%; }
+.col-acao { width: 8%; }
+
+/* BADGES */
+.badge-nivel {
+    font-weight: 800; font-size: 0.65rem; padding: 5px 8px; border-radius: 6px; text-transform: uppercase;
+}
+.bg-critico { background-color: #991b1b !important; color: white; animation: pulse-red 2s infinite; }
+.bg-alto { background-color: #ea580c !important; color: white; }
+.bg-medio { background-color: #f59e0b !important; color: #000; }
+.bg-baixo { background-color: #64748b !important; color: white; }
+
+@keyframes pulse-red {
+    0% { box-shadow: 0 0 0 0 rgba(153, 27, 27, 0.4); }
+    70% { box-shadow: 0 0 0 6px rgba(153, 27, 27, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(153, 27, 27, 0); }
+}
+
+/* FILTRO E NAV */
+.top-nav {
+    position: fixed; bottom: 0; width: 100%; background: white; display: flex;
+    justify-content: space-around; padding: 12px; border-top: 1px solid #e2e8f0; z-index: 1000;
+}
+.nav-item { text-decoration: none; color: #64748b; font-size: 0.75rem; display: flex; flex-direction: column; align-items: center; }
+.nav-item.active { color: #ef4444; }
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<div class="app-header">
+    <h4 class="m-0"><i class="fas fa-desktop"></i> GESTÃO À VISTA - ALARMES ATIVOS</h4>
+</div>
+
+<!-- KPIs -->
+<div class="container-fluid mt-2 px-3">
+    <div class="row g-2">
+        <div class="col-4">
+            <div class="kpi-card">
+                <div class="text-muted small">Equipamentos</div>
+                <div class="fw-bold">{{ alarmes|length }}</div>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="kpi-card">
+                <div class="text-muted small">Ocorrências</div>
+                <div class="fw-bold">{{ alarmes | sum(attribute='notificacoes') }}</div>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="kpi-card">
+                <div class="text-muted small">Maior Atraso</div>
+                <div class="fw-bold">{{ alarmes[0].dias if alarmes else 0 }}d</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- BUSCA -->
+<div class="px-3 my-2">
+    <input type="text" id="filtro" class="form-control form-control-sm" placeholder="🔍 Filtrar por equipamento, item ou nível...">
+</div>
+
+<!-- CARD DA TABELA (OCUPARÁ O RESTANTE DA TELA) -->
+<div class="card-gestao">
+    <table class="table-header-fixed">
+        <thead>
+            <tr>
+                <th class="col-eq">Equipamento</th>
+                <th class="col-item">Item</th>
+                <th class="col-nivel">Nível alarme</th> 
+                <th class="col-val">Valor</th>
+                <th class="col-set">Setor</th>
+                <th class="col-dias">Dias</th>
+                <th class="col-acao">Ver</th>
+            </tr>
+        </thead>
+    </table>
+
+    <div class="scroll-viewport">
+        <div class="scroll-content">
+            <table id="tabelaGestao">
+                <tbody>
+                    {% for alarme in alarmes %}
+                    <tr>
+                        <td class="col-eq">
+                            <b>{{ alarme.equipamento }}</b><br>
+                            <small class="text-muted">{{ alarme.data }}</small>
+                        </td>
+                        <td class="col-item">{{ alarme.item }}</td>
+                        <td class="col-nivel">
+                            <span class="badge badge-nivel {% if alarme.nivel_alarme == 'CRÍTICO' %}bg-critico{% elif alarme.nivel_alarme == 'ALTO' %}bg-alto{% elif alarme.nivel_alarme == 'MÉDIO' %}bg-medio{% else %}bg-baixo{% endif %}">
+                                {{ alarme.nivel_alarme }}
+                            </span>
+                        </td>
+                        <td class="col-val">
+                            <span class="text-danger fw-bold">{{ alarme.valor }}</span>
+                            <div class="small text-muted">{{ alarme.notificacoes }}x</div>
+                        </td>
+                        <td class="col-set"><span class="badge bg-dark" style="font-size:0.6rem">{{ alarme.setor }}</span></td>
+                        <td class="col-dias">
+                            <span class="badge {% if alarme.dias > 3 %}bg-danger{% else %}bg-secondary{% endif %}">{{ alarme.dias }}d</span>
+                        </td>
+                        <td class="col-acao">
+                            <a href="/analise?eq_busca={{ alarme.equipamento }}&item_busca={{ alarme.item }}" class="btn btn-primary btn-sm p-1">
+                                <i class="fas fa-chart-line"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                    <!-- Duplicação para loop infinito -->
+                    {% if alarmes|length > 5 %}
+                        {% for alarme in alarmes %}
+                        <tr>
+                            <td class="col-eq"><b>{{ alarme.equipamento }}</b></td>
+                            <td class="col-item">{{ alarme.item }}</td>
+                            <td class="col-nivel"><span class="badge badge-nivel {% if alarme.nivel_alarme == 'CRÍTICO' %}bg-critico{% elif alarme.nivel_alarme == 'ALTO' %}bg-alto{% elif alarme.nivel_alarme == 'MÉDIO' %}bg-medio{% else %}bg-baixo{% endif %}">{{ alarme.nivel_alarme }}</span></td>
+                            <td class="col-val"><span class="text-danger fw-bold">{{ alarme.valor }}</span></td>
+                            <td class="col-set"><span class="badge bg-dark" style="font-size:0.6rem">{{ alarme.setor }}</span></td>
+                            <td class="col-dias"><span class="badge {% if alarme.dias > 3 %}bg-danger{% else %}bg-secondary{% endif %}">{{ alarme.dias }}d</span></td>
+                            <td class="col-acao"><a href="#" class="btn btn-primary btn-sm p-1"><i class="fas fa-chart-line"></i></a></td>
+                        </tr>
+                        {% endfor %}
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MENU INFERIOR -->
+<nav class="top-nav">
+    <a href="/" class="nav-item"><i class="fas fa-tasks"></i><span>Checklist</span></a>
+    <a href="/gestao_a_vista" class="nav-item active"><i class="fas fa-eye"></i><span>Gestão</span></a>
+    <a href="/programacao" class="nav-item"><i class="fas fa-calendar"></i><span>Agenda</span></a>
+    <a href="/dashboard" class="nav-item"><i class="fas fa-chart-pie"></i><span>KPIs</span></a>
+</nav>
+
+<script>
+// Filtro
+document.getElementById("filtro").addEventListener("keyup", function() {
+    let filtro = this.value.toLowerCase();
+    let linhas = document.querySelectorAll("#tabelaGestao tbody tr");
+    const content = document.querySelector('.scroll-content');
+    
+    linhas.forEach(linha => {
+        let texto = linha.innerText.toLowerCase();
+        linha.style.display = texto.includes(filtro) ? "" : "none";
+    });
+
+    // Se houver filtro, para a animação
+    content.style.animation = (filtro.length > 0) ? 'none' : 'scrollGestao 30s linear infinite';
+});
+</script>
+
+</body>
+</html>

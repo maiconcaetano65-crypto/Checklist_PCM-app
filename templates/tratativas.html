@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tratativas Técnicas - Sistema de Inspeção</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --danger: #dc2626; --dark: #0f172a; --bg: #f8fafc; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); margin: 0; color: #334155; padding-bottom: 40px;}
+        .header { background: var(--danger); color: white; padding: 40px 20px; text-align: center; border-bottom-left-radius: 30px; border-bottom-right-radius: 30px; }
+        .container { max-width: 650px; margin: -40px auto 40px; padding: 0 20px; }
+        
+        .card-alarme { background: white; border-radius: 24px; padding: 25px; box-shadow: 0 15px 30px -10px rgba(0,0,0,0.1); margin-bottom: 25px; border: 1px solid #e2e8f0; animation: slideIn 0.4s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .badge-status { background: #fee2e2; color: var(--danger); padding: 6px 14px; border-radius: 12px; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+        h3 { margin: 15px 0 5px; color: var(--dark); font-size: 1.3rem; font-weight: 800; }
+        
+        .grid-info { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; font-size: 0.85rem; }
+        .info-item { background: #f1f5f9; padding: 12px; border-radius: 12px; }
+        .info-item b { color: var(--dark); display: block; margin-top: 4px; font-size: 1rem; }
+
+        .relato-area { background: #fff7ed; padding: 18px; border-radius: 16px; border-left: 5px solid #f97316; margin-bottom: 25px; font-size: 0.9rem; line-height: 1.6; }
+        .form-tratativa { display: none; margin-top: 20px; padding-top: 25px; border-top: 2px solid #f1f5f9; }
+        
+        label { display: block; font-size: 0.8rem; font-weight: 800; color: var(--dark); margin-bottom: 10px; }
+        textarea { width: 100%; border: 2px solid #e2e8f0; border-radius: 16px; padding: 15px; font-family: inherit; margin-bottom: 20px; box-sizing: border-box; font-size: 0.95rem; background: #fdfdfd; }
+        textarea:focus { border-color: var(--danger); outline: none; background: white; }
+
+        .btn-acao { background: var(--danger); color: white; border: none; padding: 12px 24px; border-radius: 14px; font-weight: 800; cursor: pointer; float: right; }
+        .btn-submit { background: var(--dark); color: white; border: none; padding: 18px; border-radius: 16px; font-weight: 800; width: 100%; cursor: pointer; font-size: 1rem; }
+        
+        .vazio { background: white; padding: 60px 20px; border-radius: 30px; text-align: center; border: 2px dashed #cbd5e1; }
+        .footer-nav { text-align: center; margin-top: 30px; }
+        .footer-nav a { text-decoration: none; color: #64748b; font-weight: 700; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h2 style="margin:0; font-weight: 800; font-size: 1.8rem;">Tratativas Técnicas</h2>
+    <p style="opacity: 0.9; margin-top: 8px;">Gerenciamento de Alarmes - Setor {{ setor_nome }}</p>
+</div>
+
+<div class="container">
+    {% if not alarmes %}
+        <div class="vazio">
+            <div style="background: #dcfce7; width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                <i class="fas fa-check" style="font-size: 2.5rem; color: #16a34a;"></i>
+            </div>
+            <h3 style="color: #16a34a; margin-bottom: 10px;">Operação Estável</h3>
+            <p style="color: #64748b">Não há alarmes aguardando ação técnica no momento.</p>
+            <a href="/" style="display: inline-block; margin-top: 20px; color: var(--danger); font-weight: 800; text-decoration: none;">Voltar ao Painel</a>
+        </div>
+    {% else %}
+        {% for a in alarmes %}
+        <div class="card-alarme">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <span class="badge-status">Pendente</span>
+                <button class="btn-acao" onclick="showForm('form-{{loop.index}}', this)">Tratar</button>
+            </div>
+            
+            <h3>{{ a.eq }}</h3>
+            <p style="color: #64748b; font-weight: 600; margin: 0;">{{ a.item }}</p>
+            
+            <div class="grid-info">
+                <div class="info-item">Data Ocorrência <b>{{ a.data }}</b></div>
+                <div class="info-item">Valor Detectado <b style="color: var(--danger)">{{ a.valor }}</b></div>
+            </div>
+
+            <div class="relato-area">
+                <small style="text-transform: uppercase; font-weight: 800; color: #f97316; display: block; margin-bottom: 5px;">Relato do Operador</small>
+                {{ a.obs if a.obs and a.obs.strip() != "" else 'Nenhuma observação técnica fornecida pelo inspetor.' }}
+            </div>
+
+            <form action="/salvar_tratativa" method="POST" class="form-tratativa" id="form-{{loop.index}}">
+                <input type="hidden" name="equipamento" value="{{ a.eq }}">
+                <input type="hidden" name="item" value="{{ a.item }}">
+                
+                <label><i class="fas fa-search"></i> Causa Raiz do Problema</label>
+                <textarea name="causa" rows="3" placeholder="Qual a origem técnica desta falha?" required></textarea>
+                
+                <label><i class="fas fa-wrench"></i> Ação Corretiva Realizada</label>
+                <textarea name="acao" rows="3" placeholder="Descreva os reparos ou ajustes feitos..." required></textarea>
+                
+                <button type="submit" class="btn-submit">CONFIRMAR SOLUÇÃO</button>
+            </form>
+        </div>
+        {% endfor %}
+    {% endif %}
+    
+    <div class="footer-nav">
+        <a href="/"><i class="fas fa-home"></i> Voltar para Início</a>
+    </div>
+</div>
+
+<script>
+    function showForm(id, btn) {
+        document.getElementById(id).style.display = 'block';
+        btn.style.display = 'none';
+        window.scrollBy({ top: 300, behavior: 'smooth' });
+    }
+</script>
+
+</body>
+</html>

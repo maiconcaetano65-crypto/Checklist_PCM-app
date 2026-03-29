@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cronograma por Setor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #2563eb; --primary-light: #eff6ff;
+            --success: #10b981; --success-light: #ecfdf5;
+            --danger: #ef4444; --danger-light: #fef2f2;
+            --warning: #f59e0b; --warning-light: #fffbeb;
+            --bg: #f8fafc; --card: #ffffff; --text: #0f172a; --muted: #64748b;
+        }
+
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding-bottom: 40px; }
+        .container { max-width: 600px; margin: auto; padding: 0 16px; }
+
+        /* Header Estilizado */
+        .app-header { background: #fff; padding: 20px 0 15px; border-bottom: 1px solid #e2e8f0; margin-bottom: 20px; position: sticky; top: 0; z-index: 100; }
+        .user-badge { background: var(--primary-light); color: var(--primary); padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; display: inline-block; margin-bottom: 8px; }
+        .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .btn-home { width: 45px; height: 45px; border-radius: 14px; background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; text-decoration: none; }
+
+        /* NOVO: Botão de Relatório */
+        .btn-report { background: #1e293b; color: white; border: none; padding: 10px 16px; border-radius: 12px; font-size: 0.75rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.3s; }
+        .btn-report:hover { background: #0f172a; transform: translateY(-2px); }
+
+        /* Seletor de Dias */
+        .day-selector { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none; -ms-overflow-style: none; }
+        .day-selector::-webkit-scrollbar { display: none; }
+        .day-item { min-width: 65px; height: 85px; background: white; border-radius: 18px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1.5px solid #f1f5f9; cursor: pointer; transition: 0.3s; flex-shrink: 0; }
+        .day-item.active { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 8px 15px rgba(37, 99, 235, 0.2); }
+        .day-item span:first-child { font-size: 0.65rem; font-weight: 700; opacity: 0.8; text-transform: uppercase; }
+        .day-item span:last-child { font-size: 1.2rem; font-weight: 800; }
+
+        /* Cards de Agendamento */
+        .schedule-card { background: var(--card); border-radius: 20px; padding: 18px; margin-bottom: 12px; display: none; align-items: center; gap: 15px; border: 1px solid #e2e8f0; position: relative; animation: fadeIn 0.3s ease; text-decoration: none; color: inherit; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .schedule-card::before { content: ""; position: absolute; left: 0; top: 25%; width: 4px; height: 50%; border-radius: 0 4px 4px 0; }
+        
+        .status-concluido::before { background: var(--success); }
+        .status-concluido .btn-go { background: var(--success-light); color: var(--success); }
+        
+        .status-pendente::before { background: var(--danger); }
+        .status-pendente .btn-go { background: var(--danger-light); color: var(--danger); }
+        
+        .time-box { text-align: center; min-width: 65px; border-right: 1px solid #f1f5f9; padding-right: 10px; }
+        .turno-tag { font-size: 0.6rem; font-weight: 800; background: #1e293b; color: white; padding: 2px 6px; border-radius: 4px; display: block; margin-bottom: 4px; }
+        
+        .info-box h3 { margin: 0; font-size: 0.95rem; font-weight: 800; color: #1e293b; }
+        .info-box p { margin: 4px 0 0; font-size: 0.75rem; color: var(--muted); font-weight: 600; }
+
+        .btn-go { margin-left: auto; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; transition: 0.2s; }
+
+        .empty-state { text-align: center; padding: 60px 20px; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="app-header">
+    <div class="container">
+        <div class="header-top">
+            <div>
+                <span class="user-badge"><i class="fas fa-industry"></i> {{ usuario.setor }}</span>
+                <h1 style="margin:0; font-size: 1.3rem; font-weight: 800;">Cronograma</h1>
+                <p id="counter" style="margin:4px 0 0; font-size: 0.8rem; color: var(--muted); font-weight: 600;">Carregando...</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-report" onclick="gerarPDF()">
+                    <i class="fas fa-file-pdf"></i> PDF
+                </button>
+                <a href="/" class="btn-home"><i class="fas fa-house"></i></a>
+            </div>
+        </div>
+
+        <div class="day-selector" id="daySelector"></div>
+    </div>
+</div>
+
+<div class="container">
+    <div id="scheduleList">
+        {% for item in agenda %}
+            <a href="/?equipamento={{ item.equipamento }}" 
+               class="schedule-card {% if item.status == 'CONCLUIDO' %}status-concluido{% else %}status-pendente{% endif %}" 
+               data-date="{{ item.data }}"
+               data-equip="{{ item.equipamento }}"
+               data-status="{{ item.status }}"
+               data-turno="{{ item.turno }}">
+                
+                <div class="time-box">
+                    <span class="turno-tag">TURNO {{ item.turno }}</span>
+                    <span style="font-weight: 800; font-size: 0.85rem;">{{ item.data[:5] }}</span>
+                </div>
+                
+                <div class="info-box">
+                    <h3>{{ item.equipamento }}</h3>
+                    <p>
+                        {% if item.status == 'CONCLUIDO' %}
+                            <i class="fas fa-check-double" style="color: var(--success);"></i> Inspecionado
+                        {% else %}
+                            <i class="fas fa-clock"></i> Pendente para este dia
+                        {% endif %}
+                    </p>
+                </div>
+
+                <div class="btn-go">
+                    <i class="fas {% if item.status == 'CONCLUIDO' %}fa-check{% else %}fa-chevron-right{% endif %}"></i>
+                </div>
+            </a>
+        {% endfor %}
+    </div>
+
+    <div id="emptyState" class="empty-state">
+        <i class="fas fa-calendar-day fa-3x" style="margin-bottom: 15px; color: var(--muted); opacity: 0.3;"></i>
+        <h3 style="color: var(--muted); margin: 0;">Nenhuma inspeção</h3>
+        <p style="color: var(--muted); font-size: 0.85rem;">Não há equipamentos escalados para você nesta data.</p>
+    </div>
+</div>
+
+<script>
+    const daySelector = document.getElementById('daySelector');
+    const cards = document.querySelectorAll('.schedule-card');
+    const emptyState = document.getElementById('emptyState');
+    const counter = document.getElementById('counter');
+    let currentFilteredDate = "";
+
+    function generateDays() {
+        const days = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB'];
+        const today = new Date();
+        
+        for (let i = -2; i < 6; i++) {
+            const date = new Date();
+            date.setDate(today.getDate() + i);
+            
+            const d = String(date.getDate()).padStart(2, '0');
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const y = date.getFullYear();
+            const fullDate = `${d}/${m}/${y}`;
+            
+            const dayDiv = document.createElement('div');
+            dayDiv.className = `day-item ${i === 0 ? 'active' : ''}`;
+            dayDiv.innerHTML = `<span>${days[date.getDay()]}</span><span>${d}</span>`;
+            dayDiv.onclick = () => filterByDate(fullDate, dayDiv);
+            daySelector.appendChild(dayDiv);
+            
+            if(i === 0) filterByDate(fullDate, dayDiv);
+        }
+    }
+
+    function filterByDate(selectedDate, element) {
+        currentFilteredDate = selectedDate;
+        document.querySelectorAll('.day-item').forEach(d => d.classList.remove('active'));
+        element.classList.add('active');
+
+        let count = 0;
+        cards.forEach(card => {
+            if (card.dataset.date === selectedDate) {
+                card.style.display = 'flex';
+                count++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        emptyState.style.display = count === 0 ? 'block' : 'none';
+        counter.innerText = `${count} inspeção(ões) para seu setor`;
+        element.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+
+    async function gerarPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        const setor = "{{ usuario.setor }}";
+        const dataRef = currentFilteredDate;
+
+        // Cabeçalho do PDF
+        doc.setFontSize(18);
+        doc.text("Relatório de Inspeção Industrial", 14, 20);
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Setor: ${setor} | Data de Referência: ${dataRef}`, 14, 28);
+        doc.text(`Gerado em: ${new Date().toLocaleString()}`, 14, 33);
+
+        const rows = [];
+        cards.forEach(card => {
+            if(card.dataset.date === dataRef) {
+                rows.push([
+                    card.dataset.turno,
+                    card.dataset.equip,
+                    card.dataset.status,
+                    card.dataset.status === 'CONCLUIDO' ? 'Realizada' : 'NÃO REALIZADA'
+                ]);
+            }
+        });
+
+        // Tabela de Dados
+        doc.autoTable({
+            startY: 40,
+            head: [['Turno', 'Equipamento', 'Status Sistema', 'Situação']],
+            body: rows,
+            headStyles: { fillStyle: '#1e293b' },
+            alternateRowStyles: { fillColor: '#f8fafc' },
+            margin: { top: 40 }
+        });
+
+        // Sugestão: Espaço para observações manuais do gestor no PDF
+        let finalY = doc.lastAutoTable.finalY + 15;
+        doc.setFontSize(12);
+        doc.setTextColor(0);
+        doc.text("Observações do Gestor:", 14, finalY);
+        doc.rect(14, finalY + 5, 180, 30); // Moldura para anotação
+
+        doc.save(`Relatorio_Inspeccao_${setor.replace(/ /g, '_')}_${dataRef.replace(/\//g, '-')}.pdf`);
+    }
+
+    window.onload = generateDays;
+</script>
+
+</body>
+</html>

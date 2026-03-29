@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análise de Tendência - Preditiva</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f8fafc; --card: #ffffff; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            margin: 0;
+            padding: 20px;
+            padding-left: 110px; /* espaço pro menu lateral */
+            color: #334155;
+        }
+
+        .container { max-width: 1300px; margin: auto; }
+
+        .header-analise {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+
+        .btn-voltar {
+            text-decoration: none;
+            color: var(--primary);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .filtro-card {
+            background: var(--card);
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 20px;
+        }
+
+        .grid-filtros {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 20px;
+            align-items: flex-end;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+
+        .btn-filtrar {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.2s;
+            height: 45px;
+        }
+
+        .btn-filtrar:hover {
+            background: #219150;
+            transform: translateY(-1px);
+        }
+
+        .chart-container {
+            background: var(--card);
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            min-height: 500px;
+            position: relative;
+        }
+
+        .select2-container--default .select2-selection--multiple {
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 8px !important;
+            min-height: 45px !important;
+        }
+
+        /* ===== MENU LATERAL ===== */
+        .top-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 85px;
+            height: 100vh;
+            background: #0f172a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 20px;
+            gap: 15px;
+            border-right: 1px solid #1e293b;
+            z-index: 1000;
+        }
+
+        .nav-item {
+            width: 55px;
+            height: 55px;
+            border-radius: 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            color: #94a3b8;
+            font-size: 0.65rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .nav-item i {
+            font-size: 1.3rem;
+            margin-bottom: 3px;
+        }
+
+        .nav-item:hover {
+            background: #1e293b;
+            color: #ffffff;
+            transform: translateY(-2px);
+        }
+
+        .nav-item.active {
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+    <div class="header-analise">
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <a href="/" class="btn-voltar"><i class="fas fa-chevron-left"></i> Voltar</a>
+            <h2 style="margin:0;"><i class="fas fa-chart-line"></i> Análise de Tendência de Falhas</h2>
+        </div>
+    </div>
+
+    <div class="filtro-card">
+        <form action="/analise" method="GET">
+            <div class="grid-filtros">
+                <div>
+                    <label><i class="fas fa-industry"></i> Equipamento(s):</label>
+                    <select name="eq_busca" class="select2" multiple="multiple" style="width: 100%">
+                        {% for eq in lista_busca %}
+                            <option value="{{ eq }}" {% if eq in selecionados_eq %}selected{% endif %}>{{ eq }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label><i class="fas fa-toolbox"></i> Itens/Pontos:</label>
+                    <select name="item_busca" class="select2" multiple="multiple" style="width: 100%">
+                        {% for item in lista_itens %}
+                            <option value="{{ item }}" {% if item in selecionados_item %}selected{% endif %}>{{ item }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="submit" class="btn-filtrar">
+                    <i class="fas fa-sync-alt"></i> Analisar
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="trendChart"></canvas>
+    </div>
+</div>
+
+<!-- MENU LATERAL -->
+<nav class="top-nav">
+
+    <a href="/" class="nav-item">
+        <i class="fas fa-tasks"></i>
+        <span>Check</span>
+    </a>
+
+    <a href="/gestao_a_vista" class="nav-item">
+        <i class="fas fa-eye"></i>
+        <span>Gestão</span>
+    </a>
+
+    {% if session.get('nivel') in ['ADMIN', 'ADMINFULL'] %}
+    <a href="/analise" class="nav-item active">
+        <i class="fas fa-chart-line"></i>
+        <span>Análise</span>
+    </a>
+    {% endif %}
+
+    <a href="/dashboard" class="nav-item">
+        <i class="fas fa-chart-pie"></i>
+        <span>KPIs</span>
+    </a>
+
+    <a href="/logout" class="nav-item">
+        <i class="fas fa-sign-out-alt"></i>
+        <span>Sair</span>
+    </a>
+
+</nav>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+$(document).ready(function() {
+    $('.select2').select2({ placeholder: "Selecione...", allowClear: true });
+
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    const rawData = {{ dados | tojson | safe }};
+    
+    if (!rawData || rawData.length === 0) {
+        ctx.fillText("Sem dados para os filtros selecionados.", ctx.canvas.width/2, ctx.canvas.height/2);
+        return;
+    }
+
+    const datasetsMap = {};
+    const labelsSet = new Set();
+    const cores = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4'];
+    let corIndex = 0;
+
+    rawData.forEach(p => labelsSet.add(p.data));
+    const labels = Array.from(labelsSet).sort();
+
+    rawData.forEach(ponto => {
+        const key = `${ponto.equipamento} - ${ponto.item}`;
+        
+        if (!datasetsMap[key]) {
+            const cor = cores[corIndex % cores.length];
+            corIndex++;
+
+            datasetsMap[key] = {
+                label: `Medição: ${key}`,
+                data: labels.map(l => {
+                    const d = rawData.find(r => r.data === l && `${r.equipamento} - ${r.item}` === key);
+                    return d ? d.valor : null;
+                }),
+                borderColor: cor,
+                backgroundColor: cor,
+                borderWidth: 3,
+                tension: 0.3,
+                pointRadius: 5,
+                spanGaps: true
+            };
+
+            if (ponto.max != null) {
+                datasetsMap[key + '_max'] = {
+                    label: `Limite Máx (${ponto.item})`,
+                    data: Array(labels.length).fill(ponto.max),
+                    borderColor: 'rgb(239, 68, 68)',
+                    borderDash: [10, 5],
+                    borderWidth: 2,
+                    pointRadius: 0
+                };
+            }
+
+            if (ponto.min != null) {
+                datasetsMap[key + '_min'] = {
+                    label: `Limite Mín (${ponto.item})`,
+                    data: Array(labels.length).fill(ponto.min),
+                    borderColor: 'rgb(245, 158, 11)',
+                    borderDash: [5, 5],
+                    borderWidth: 2,
+                    pointRadius: 0
+                };
+            }
+        }
+    });
+
+    new Chart(ctx, {
+        type: 'line',
+        data: { labels: labels, datasets: Object.values(datasetsMap) },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: false }
+            },
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+});
+</script>
+
+</body>
+</html>

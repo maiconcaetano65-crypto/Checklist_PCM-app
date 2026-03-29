@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Cockpit de Manutenção - {{ setor_nome }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=Roboto+Mono:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-main: #f1f5f9;
+            --card-bg: #ffffff;
+            --accent-blue: #0f172a;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --success: #10b981;
+            --text-main: #1e293b;
+            --text-dim: #64748b;
+            --border: #e2e8f0;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg-main);
+            color: var(--text-main);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* BOTÃO VOLTAR */
+        .btn-voltar-flutuante {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: var(--accent-blue);
+            color: white;
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 1000;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        /* AJUSTE FINO: STATUS DE ATUALIZAÇÃO REALT-TIME */
+        .status-update {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text-dim);
+            z-index: 1000;
+        }
+
+        .led-sync {
+            width: 8px;
+            height: 8px;
+            background-color: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--success);
+            animation: pulse-green 2s infinite;
+        }
+
+        @keyframes pulse-green {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        /* CONTEÚDO E GRID (CONGELADOS) */
+        .main-content { flex: 1; padding: 20px; padding-top: 60px; display: flex; flex-direction: column; gap: 15px; box-sizing: border-box; }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: 120px 300px 1fr; gap: 15px; height: 100%; }
+        .kpi-card { background: var(--card-bg); border-radius: 12px; padding: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); text-align: center; display: flex; flex-direction: column; justify-content: center; }
+        .kpi-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; font-weight: 700; }
+        .kpi-value { font-size: 2.2rem; font-weight: 800; font-family: 'Roboto Mono', monospace; }
+
+        .chart-box { background: var(--card-bg); border-radius: 16px; padding: 15px; box-shadow: 0 6px 20px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow: hidden; }
+        .chart-box h3 { font-size: 0.75rem; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px; }
+        .chart-wrapper { flex: 1; position: relative; width: 100%; }
+        .chart-wrapper canvas { position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; }
+
+        /* TABELA DE ROLAGEM */
+        .event-log { grid-column: span 4; background: var(--card-bg); border-radius: 16px; box-shadow: 0 6px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow: hidden; padding: 15px; }
+        .table-header-fixed { width: 100%; border-collapse: collapse; font-size: 0.65rem; text-transform: uppercase; color: var(--text-dim); margin-bottom: 5px; }
+        .scroll-viewport { flex: 1; overflow: hidden; }
+        .scroll-content { animation: scrollTable 35s linear infinite; }
+        .scroll-content:hover { animation-play-state: paused; }
+        @keyframes scrollTable { 0% { transform: translateY(0); } 100% { transform: translateY(-50%); } }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        td, th { padding: 12px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+        .setor-badge { background: #0f172a; color: #fff; font-weight: 600; padding: 4px 10px; border-radius: 20px; font-size: 0.65rem; }
+        .badge-dias { font-weight: 800; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; }
+
+        .col-eq { width: 22%; } .col-item { width: 22%; } .col-val { width: 15%; } .col-set { width: 15%; } .col-dias { width: 10%; text-align: center; } .col-time { width: 16%; }
+    </style>
+</head>
+<body>
+
+    <a href="{{ url_for('index') }}" class="btn-voltar-flutuante">
+        <i class="fas fa-arrow-left"></i> MENU
+    </a>
+
+    <div class="status-update">
+        <div class="led-sync"></div>
+        <span>LIVE: SYNC EXCEL <span id="timer">30</span>s</span>
+    </div>
+
+    <main class="main-content">
+        <h2 style="margin: 0 0 10px 0; font-size: 1.1rem; color: var(--accent-blue); text-align: center; font-weight: 800;">
+            CENTRAL DE MONITORAMENTO - {{ setor_nome }}
+        </h2>
+
+        <div class="dashboard-grid">
+            <div class="kpi-card">
+                <div class="kpi-label">Ativos Totais</div>
+                <div class="kpi-value">{{ total }}</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Status OK</div>
+                <div class="kpi-value" style="color: var(--success)">{{ ok }}</div>
+            </div>
+            <div class="kpi-card" style="border-bottom: 4px solid var(--danger)">
+                <div class="kpi-label">Alarmes Ativos</div>
+                <div class="kpi-value" style="color: var(--danger)">{{ alarme }}</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Horário</div>
+                <div id="clock" style="font-size: 1.5rem; font-weight: 800; color: var(--accent-blue);">00:00:00</div>
+            </div>
+
+            <div class="chart-box"><h3>Saúde</h3><div class="chart-wrapper"><canvas id="chartSaude"></canvas></div></div>
+            <div class="chart-box" style="grid-column: span 2;"><h3>Alarmes/Setor</h3><div class="chart-wrapper"><canvas id="chartSetores"></canvas></div></div>
+            <div class="chart-box"><h3>Variáveis</h3><div class="chart-wrapper"><canvas id="chartItens"></canvas></div></div>
+
+            <div class="event-log">
+                <table class="table-header-fixed">
+                    <thead>
+                        <tr>
+                            <th class="col-eq">Equipamento</th>
+                            <th class="col-item">Item</th>
+                            <th class="col-val">Valor</th>
+                            <th class="col-set">Setor</th>
+                            <th class="col-nivel">Nível</th> <!-- Incluído aqui -->
+                            <th class="col-dias">Dias</th>
+                            <th class="col-time">Data</th>
+                        </tr>
+                    </thead>
+                </table>
+                <div class="scroll-viewport">
+                    <div class="scroll-content">
+                        <table>
+                            <tbody>
+                                {% for reg in lista_alarmes %}
+                                <tr class="{% if reg.Nivel == 'CRÍTICO' %}row-critico{% elif reg.Nivel in ['ALTO', 'ALERTA'] %}row-alerta{% endif %}">
+                                    <td class="col-eq"><b>{{ reg.Equipamento }}</b></td>
+                                    <td class="col-item">{{ reg.Item }}</td>
+                                    <td class="col-val"><span style="color: var(--danger); font-weight: 800;"><i class="fas fa-exclamation-triangle"></i> {{ reg.Valor }}</span></td>
+                                    <td class="col-set"><span class="setor-badge">{{ reg.Setor }}</span></td>
+                                    <td class="col-nivel"><span style="font-weight: 800; font-size: 0.7rem; text-transform: uppercase;"></span></td>
+                                    <td class="col-dias"><span class="badge bg-danger badge-dias">{{ reg.Dias if reg.Dias else '1' }}d</span></td>
+                                    <td class="col-time" style="color: var(--text-dim); font-size: 0.7rem;">{{ reg.Data }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+<script>
+    // RELÓGIO E TIMER DE SYNC
+    let timeLeft = 30;
+    function updateClock() {
+        const clockEl = document.getElementById('clock');
+        const timerEl = document.getElementById('timer');
+        if(clockEl) clockEl.innerText = new Date().toLocaleTimeString('pt-BR');
+        
+        timeLeft--;
+        if(timerEl) timerEl.innerText = timeLeft;
+        
+        if(timeLeft <= 0) { window.location.reload(); }
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // GRÁFICOS
+    Chart.defaults.color = '#64748b';
+    Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+
+    new Chart(document.getElementById('chartSaude'), {
+        type: 'doughnut',
+        data: {
+            labels: ['OK', 'Alarme'],
+            datasets: [{
+                data: [{{ ok }}, {{ alarme }}],
+                backgroundColor: ['#10b981', '#ef4444'],
+                borderWidth: 0
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'bottom' } } }
+    });
+
+    new Chart(document.getElementById('chartSetores'), {
+        type: 'bar',
+        data: {
+            labels: {{ alarmes_por_setor.keys()|list|tojson }},
+            datasets: [{ label: 'Alarmes', data: {{ alarmes_por_setor.values()|list|tojson }}, backgroundColor: '#0f172a', borderRadius: 4 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+
+    new Chart(document.getElementById('chartItens'), {
+        type: 'bar',
+        data: {
+            labels: {{ variaveis_alarme.keys()|list|tojson }},
+            datasets: [{ data: {{ variaveis_alarme.values()|list|tojson }}, backgroundColor: '#f59e0b', borderRadius: 4 }]
+        },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+</script>
+
+<!-- SISTEMA DE NOTIFICAÇÃO POR NOVO REGISTRO DE INSPEÇÃO -->
+<style>
+    #pop-inspecao {
+        position: fixed;
+        top: 20px;
+        right: -450px;
+        width: 350px;
+        background: #fff;
+        border-left: 8px solid #ef4444;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        border-radius: 10px;
+        padding: 20px;
+        z-index: 99999;
+        transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    #pop-inspecao.active { right: 20px; }
+
+    .pop-header { color: #ef4444; font-weight: 800; display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .pop-body { font-size: 0.85rem; background: #f1f5f9; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; }
+    .pop-footer { margin-top: 15px; }
+    .btn-notificacao { width: 100%; background: #0f172a; color: white; border: none; padding: 8px; border-radius: 4px; font-weight: 700; cursor: pointer; }
+
+    /* Alerta visual de tela piscando suavemente */
+    @keyframes alert-glow {
+        0% { box-shadow: inset 0 0 0px rgba(239, 68, 68, 0); }
+        50% { box-shadow: inset 0 0 80px rgba(239, 68, 68, 0.1); }
+        100% { box-shadow: inset 0 0 0px rgba(239, 68, 68, 0); }
+    }
+    .modo-alerta { animation: alert-glow 1.5s infinite; }
+</style>
+
+<div id="pop-inspecao">
+    <div class="pop-header">
+        <i class="fas fa-exclamation-triangle"></i> NOVO ALARME REGISTRADO
+    </div>
+    <div class="pop-body" id="msg-inspecao">
+        <!-- Preenchido via JS -->
+    </div>
+    <div class="pop-footer">
+        <button class="btn-notificacao" onclick="pararAlerta()">ENTENDIDO</button>
+    </div>
+</div>
+
+<audio id="som-industrial" src="https://assets.mixkit.co/active_storage/sfx/995/995-preview.mp3" preload="auto"></audio>
+
+<script>
+    function verificarNovosRegistros() {
+        // 1. Busca todos os alarmes que estão na tabela agora
+        const linhasAlarme = document.querySelectorAll('.scroll-content table tbody tr');
+        
+        linhasAlarme.forEach(linha => {
+            const eq = linha.querySelector('.col-eq').innerText.trim();
+            const item = linha.querySelector('.col-item').innerText.trim();
+            const dataHora = linha.querySelector('.col-time').innerText.trim(); // Carimbo do Excel
+            const valor = linha.querySelector('.col-val').innerText.trim();
+
+            // 2. Cria um ID ÚNICO para este salvamento específico (Equipamento + Data/Hora)
+            // Se o operador salvar uma nova inspeção, a data/hora será diferente e o ID mudará.
+            const idRegistro = btoa(eq + dataHora);
+            
+            // 3. Verifica se este ID já foi notificado anteriormente
+            const jaNotificado = localStorage.getItem('notificado_' + idRegistro);
+
+            if (!jaNotificado) {
+                dispararPopUp(eq, item, valor, idRegistro);
+            }
+        });
+    }
+
+    function dispararPopUp(eq, item, valor, id) {
+        const pop = document.getElementById('pop-inspecao');
+        const msg = document.getElementById('msg-inspecao');
+        const som = document.getElementById('som-industrial');
+
+        msg.innerHTML = `
+            <strong>Equipamento:</strong> ${eq}<br>
+            <strong>Falha:</strong> ${item}<br>
+            <span style="color:#ef4444; font-weight:bold">Status: ${valor}</span>
+        `;
+
+        // Mostra o pop-up e ativa o som
+        pop.classList.add('active');
+        document.body.classList.add('modo-alerta');
+        
+        som.play().catch(e => console.log("Áudio aguardando clique."));
+
+        // 4. Marca como "visto" no navegador para não repetir nos refreshes automáticos de 30s
+        localStorage.setItem('notificado_' + id, 'true');
+    }
+
+    function pararAlerta() {
+        document.getElementById('pop-inspecao').classList.remove('active');
+        document.body.classList.remove('modo-alerta');
+        const som = document.getElementById('som-industrial');
+        som.pause();
+        som.currentTime = 0;
+    }
+
+    // Inicia a checagem 1.5 segundos após carregar/atualizar a página
+    window.addEventListener('load', () => {
+        setTimeout(verificarNovosRegistros, 1500);
+    });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa de Inspeções - Pro Premium</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --primary: #2563eb; --bg-body: #f1f5f9; }
+        body { margin: 0; padding: 0; font-family: sans-serif; }
+        #map { height: 100vh; width: 100%; }
+        
+        .back-btn {
+            position: absolute; top: 20px; left: 20px; z-index: 1000;
+            background: white; padding: 12px 20px; border-radius: 50px;
+            text-decoration: none; color: var(--primary); font-weight: 800;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 8px;
+        }
+
+        /* Estilo do Popup */
+        .leaflet-popup-content-wrapper { border-radius: 12px; padding: 5px; }
+        .popup-info h3 { margin: 0 0 5px 0; color: #1e293b; border-bottom: 2px solid #eee; padding-bottom: 5px; }
+        .popup-info p { margin: 3px 0; font-size: 0.9rem; }
+        .status-badge { 
+            display: inline-block; padding: 2px 8px; border-radius: 4px; 
+            color: white; font-weight: bold; font-size: 0.75rem; 
+        }
+    </style>
+</head>
+<body>
+
+<a href="/" class="back-btn"><i class="fas fa-arrow-left"></i> VOLTAR</a>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // Inicializa o mapa (centralizado no primeiro ponto ou no Brasil por padrão)
+    const map = L.map('map').setView([-20.55, -48.56], 15); 
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    const pontos = {{ pontos|tojson }};
+    const markers = [];
+
+    pontos.forEach(p => {
+        const cor = p.status === 'ALARME' ? '#ef4444' : '#10b981';
+        
+        // Criar ícone personalizado (Círculo colorido)
+        const customIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: `<div style="background-color: ${cor}; width: 18px; height: 18px; border: 3px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.3);"></div>`,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+        });
+
+        // Ajuste para garantir que Relato e Valor sejam exibidos mesmo se vazios
+        const relato = p.Relato_Inspecao || "Sem relato";
+        const valor = p.valor !== undefined && p.valor !== null ? p.valor : "N/A";
+
+        const popupContent = `
+            <div class="popup-info">
+                <h3>${p.eq}</h3>
+                <p><b>Setor:</b> ${p.setor}</p>
+                <p><b>Status:</b> <span class="status-badge" style="background:${cor}">${p.status}</span></p>
+                ${p.status === 'ALARME' ? 
+                    `<p style="color:#ef4444"><b>Relato:</b> ${relato} (Valor: ${valor})</p>` : 
+                    `<p><b>Variável:</b> ${p.item} (Valor: ${valor})</p>`}
+                <p style="font-size:0.7rem; color:#64748b; margin-top:8px;">${p.data}</p>
+            </div>
+        `;
+
+        const marker = L.marker([p.lat, p.lon], { icon: customIcon })
+            .bindPopup(popupContent)
+            .addTo(map);
+        
+        markers.push(marker);
+    });
+
+    // Ajusta o zoom para mostrar todos os marcadores automaticamente
+    if (markers.length > 0) {
+        const group = new L.featureGroup(markers);
+        map.fitBounds(group.getBounds().pad(0.1));
+    }
+</script>
+
+</body>
+</html>
