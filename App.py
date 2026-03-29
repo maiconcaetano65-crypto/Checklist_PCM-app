@@ -123,7 +123,7 @@ def index():
     # --- NOVA VARIÁVEL PARA ALARMES ATIVOS ---
     alarmes_ativos = {} 
 
-if "Inspecoes" in wb.sheetnames:
+    if "Inspecoes" in wb.sheetnames:
         for l in wb["Inspecoes"].iter_rows(min_row=2, values_only=True):
             # --- INÍCIO DO BLOCO SEGURO ---
             try:
